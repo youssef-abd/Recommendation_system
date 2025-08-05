@@ -1,7 +1,0 @@
-.\myenv\Scripts\activate
-
-C:\Users\www>cd C:/kafka
-
-C:\kafka>bin\windows\zookeeper-server-start.bat config\zookeeper.properties
-
-data/processed/
