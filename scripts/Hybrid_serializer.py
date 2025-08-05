@@ -24,60 +24,6 @@ class ModelMetadata:
     feature_names: List[str]
     model_size_mb: float
 
-class EnhancedHybridRecommender:
-    """
-    Enhanced Hybrid Recommender with Kafka Model Serialization
-    """
-    
-    def __init__(self, cf_weight=0.4, cb_weight=0.3, popularity_weight=0.3):
-        # Initialize your existing recommender attributes
-        self.cf_weight = cf_weight
-        self.cb_weight = cb_weight
-        self.popularity_weight = popularity_weight
-        
-        # Model components (these would be populated by your training methods)
-        self.cf_recs = None
-        self.cb_recs = None
-        self.popularity_scores = {}
-        self.user_activity_levels = {}
-        self.user_history = None
-        self.metadata = None
-        
-        # Thresholds and parameters
-        self.min_cf_score = 0.1
-        self.min_cb_score = 0.1
-        self.relevance_threshold = 0.3
-        self.min_k = 5
-        self.max_k = 50
-        self.default_k = 10
-        self.use_adaptive_k = True
-        
-        # Logger
-        self.logger = logging.getLogger(__name__)
-    
-    def save_for_kafka_deployment(self, model_path: str = "models/hybrid_recommender_kafka/"):
-        """
-        Save model optimized for Kafka real-time predictions
-        """
-        serializer = KafkaModelSerializer(self)
-        return serializer.save_for_kafka(model_path)
-    
-    # Add your existing training methods here
-    def train_collaborative_filtering(self, user_item_df):
-        """Your existing CF training method"""
-        # Implementation of CF training
-        pass
-    
-    def train_content_based(self, item_features_df):
-        """Your existing CB training method"""
-        # Implementation of CB training
-        pass
-    
-    def calculate_popularity_scores(self, user_item_df):
-        """Your existing popularity calculation method"""
-        # Implementation of popularity scoring
-        pass
-
 class KafkaModelSerializer:
     """
     Optimized model serialization for Kafka real-time predictions
@@ -96,7 +42,7 @@ class KafkaModelSerializer:
             model_path = Path(model_path)
             model_path.mkdir(parents=True, exist_ok=True)
             
-            self.logger.info("Preparing model for Kafka deployment...")
+            self.logger.info("🚀 Preparing model for Kafka deployment...")
             
             # 1. Build optimized lookup dictionaries
             model_components = self._build_lookup_tables()
@@ -117,15 +63,11 @@ class KafkaModelSerializer:
             # 5. Test the saved model
             self._test_saved_model(model_path)
             
-            self.logger.info(f"Model successfully saved for Kafka at: {model_path}")
-            
-            # Print deployment summary
-            self._print_deployment_summary(model_path, metadata)
-            
+            self.logger.info(f"✅ Model successfully saved for Kafka at: {model_path}")
             return str(model_path)
             
         except Exception as e:
-            self.logger.error(f"Error saving model for Kafka: {str(e)}")
+            self.logger.error(f"❌ Error saving model for Kafka: {str(e)}")
             raise
     
     def _build_lookup_tables(self) -> Dict:
@@ -221,7 +163,7 @@ class KafkaModelSerializer:
         joblib_path = model_path / "hybrid_model.joblib"
         joblib.dump(model_components, joblib_path, compress=3)
         
-        self.logger.info(f"Saved pickle model: {pickle_path}")
+        self.logger.info(f"✅ Saved pickle model: {pickle_path}")
     
     def _save_redis_model(self, model_components: Dict):
         """Save to Redis for ultra-fast lookup (optional)"""
@@ -262,10 +204,10 @@ class KafkaModelSerializer:
                 'k_params': json.dumps(model_components['k_params'])
             })
             
-            self.logger.info("Saved model to Redis for ultra-fast lookup")
+            self.logger.info("✅ Saved model to Redis for ultra-fast lookup")
             
         except Exception as e:
-            self.logger.warning(f"Redis not available, skipping: {str(e)}")
+            self.logger.warning(f"⚠️  Redis not available, skipping: {str(e)}")
     
     def _save_json_model(self, model_path: Path, model_components: Dict):
         """Save as JSON for lightweight services"""
@@ -280,10 +222,10 @@ class KafkaModelSerializer:
         }
         
         json_path = model_path / "hybrid_model_lite.json"
-        with open(json_path, 'w', encoding='utf-8') as f:
+        with open(json_path, 'w') as f:
             json.dump(json_model, f, indent=2)
         
-        self.logger.info(f"Saved lightweight JSON model: {json_path}")
+        self.logger.info(f"✅ Saved lightweight JSON model: {json_path}")
     
     def _save_numpy_arrays(self, model_path: Path, model_components: Dict):
         """Save as numpy arrays for numerical computation"""
@@ -323,7 +265,7 @@ class KafkaModelSerializer:
             np.save(arrays_path / "popularity_products.npy", np.array(pop_products))
             np.save(arrays_path / "popularity_scores.npy", np.array(pop_scores))
         
-        self.logger.info(f"Saved numpy arrays: {arrays_path}")
+        self.logger.info(f"✅ Saved numpy arrays: {arrays_path}")
     
     def _create_metadata(self, model_components: Dict) -> ModelMetadata:
         """Create comprehensive model metadata"""
@@ -354,20 +296,53 @@ class KafkaModelSerializer:
     def _save_metadata(self, model_path: Path, metadata: ModelMetadata):
         """Save model metadata"""
         metadata_path = model_path / "model_metadata.json"
-        with open(metadata_path, 'w', encoding='utf-8') as f:
+        with open(metadata_path, 'w') as f:
             json.dump(asdict(metadata), f, indent=2)
         
         # Also save as pickle for Python
         with open(model_path / "model_metadata.pkl", 'wb') as f:
             pickle.dump(metadata, f)
         
-        self.logger.info(f"Saved metadata: {metadata_path}")
+        self.logger.info(f"✅ Saved metadata: {metadata_path}")
     
     def _create_deployment_scripts(self, model_path: Path):
         """Create deployment and testing scripts"""
         
-        # Kafka model loader script
-        loader_script = '''import pickle
+        # Kafka producer script
+        producer_script = '''
+import json
+import pickle
+from kafka import KafkaProducer
+from kafka_model_loader import KafkaHybridPredictor
+
+class RecommendationProducer:
+    def __init__(self, model_path="models/hybrid_recommender_kafka/"):
+        self.predictor = KafkaHybridPredictor(model_path)
+        self.producer = KafkaProducer(
+            bootstrap_servers=['localhost:9092'],
+            value_serializer=lambda v: json.dumps(v).encode('utf-8')
+        )
+    
+    def send_recommendation(self, user_id, candidate_products, top_k=10):
+        predictions = self.predictor.predict(user_id, candidate_products, top_k)
+        
+        recommendation_event = {
+            'user_id': user_id,
+            'timestamp': datetime.now().isoformat(),
+            'recommendations': predictions,
+            'model_version': self.predictor.metadata.version
+        }
+        
+        self.producer.send('recommendations', recommendation_event)
+        return recommendation_event
+'''
+        
+        with open(model_path / "kafka_producer.py", 'w') as f:
+            f.write(producer_script)
+        
+        # Model loader script
+        loader_script = '''
+import pickle
 import json
 import numpy as np
 from typing import List, Dict, Optional
@@ -394,7 +369,7 @@ class KafkaHybridPredictor:
         self.weights = self.model_components['weights']
         self.k_params = self.model_components['k_params']
         
-        self.logger.info(f"Model loaded: {len(self.cf_lookup)} users, {len(self.cb_lookup)} products")
+        self.logger.info(f"✅ Model loaded: {len(self.cf_lookup)} users, {len(self.cb_lookup)} products")
     
     def _load_model(self) -> Dict:
         """Load model with fallback options"""
@@ -505,54 +480,12 @@ class KafkaHybridPredictor:
         return results
 '''
         
-        with open(model_path / "kafka_model_loader.py", 'w', encoding='utf-8') as f:
+        with open(model_path / "kafka_model_loader.py", 'w') as f:
             f.write(loader_script)
         
-        # Kafka producer script
-        producer_script = '''import json
-import pickle
-from kafka import KafkaProducer
-from kafka_model_loader import KafkaHybridPredictor
-from datetime import datetime
-
-class RecommendationProducer:
-    def __init__(self, model_path="models/hybrid_recommender_kafka/"):
-        self.predictor = KafkaHybridPredictor(model_path)
-        self.producer = KafkaProducer(
-            bootstrap_servers=['localhost:9092'],
-            value_serializer=lambda v: json.dumps(v).encode('utf-8')
-        )
-    
-    def send_recommendation(self, user_id, candidate_products, top_k=10):
-        predictions = self.predictor.predict(user_id, candidate_products, top_k)
-        
-        recommendation_event = {
-            'user_id': user_id,
-            'timestamp': datetime.now().isoformat(),
-            'recommendations': predictions,
-            'model_version': self.predictor.metadata.version
-        }
-        
-        self.producer.send('recommendations', recommendation_event)
-        return recommendation_event
-
-# Usage example
-if __name__ == "__main__":
-    producer = RecommendationProducer()
-    
-    # Example recommendation
-    user_id = "user123"
-    candidate_products = ["prod1", "prod2", "prod3", "prod4", "prod5"]
-    
-    result = producer.send_recommendation(user_id, candidate_products, top_k=3)
-    print(f"Sent recommendation: {result}")
-'''
-        
-        with open(model_path / "kafka_producer.py", 'w', encoding='utf-8') as f:
-            f.write(producer_script)
-        
         # Test script
-        test_script = '''from kafka_model_loader import KafkaHybridPredictor
+        test_script = '''
+from kafka_model_loader import KafkaHybridPredictor
 import time
 
 def test_model_performance():
@@ -562,7 +495,7 @@ def test_model_performance():
     start_time = time.time()
     predictor = KafkaHybridPredictor(".")
     load_time = time.time() - start_time
-    print(f"Model loaded in {load_time:.3f} seconds")
+    print(f"✅ Model loaded in {load_time:.3f} seconds")
     
     # Test prediction
     sample_user = list(predictor.cf_lookup.keys())[0] if predictor.cf_lookup else "test_user"
@@ -572,8 +505,8 @@ def test_model_performance():
     predictions = predictor.predict(sample_user, sample_products, top_k=10)
     pred_time = time.time() - start_time
     
-    print(f"Prediction completed in {pred_time*1000:.2f} ms")
-    print(f"Sample predictions for user {sample_user}:")
+    print(f"✅ Prediction completed in {pred_time*1000:.2f} ms")
+    print(f"📊 Sample predictions for user {sample_user}:")
     for i, pred in enumerate(predictions[:3]):
         print(f"   {i+1}. Product {pred['product_id']}: {pred['hybrid_score']:.4f} (confidence: {pred['confidence']})")
     
@@ -587,17 +520,17 @@ def test_model_performance():
     batch_results = predictor.batch_predict(batch_requests)
     batch_time = time.time() - start_time
     
-    print(f"Batch prediction (10 users) completed in {batch_time*1000:.2f} ms")
-    print(f"Average time per user: {batch_time*1000/10:.2f} ms")
+    print(f"✅ Batch prediction (10 users) completed in {batch_time*1000:.2f} ms")
+    print(f"⚡ Average time per user: {batch_time*1000/10:.2f} ms")
 
 if __name__ == "__main__":
     test_model_performance()
 '''
         
-        with open(model_path / "test_model.py", 'w', encoding='utf-8') as f:
+        with open(model_path / "test_model.py", 'w') as f:
             f.write(test_script)
         
-        self.logger.info("Created deployment scripts")
+        self.logger.info("✅ Created deployment scripts")
     
     def _test_saved_model(self, model_path: Path):
         """Test the saved model"""
@@ -634,65 +567,49 @@ if __name__ == "__main__":
                         
                         assert 0 <= hybrid_score <= 1.1, f"Invalid hybrid score: {hybrid_score}"
             
-            self.logger.info("Model validation passed")
+            self.logger.info("✅ Model validation passed")
             
         except Exception as e:
-            self.logger.error(f"Model validation failed: {str(e)}")
+            self.logger.error(f"❌ Model validation failed: {str(e)}")
             raise
-    
-    def _print_deployment_summary(self, model_path: Path, metadata: ModelMetadata):
-        """Print deployment summary"""
-        print(f"\nModel successfully prepared for Kafka!")
-        print(f"Saved to: {model_path}")
-        print(f"\nModel Statistics:")
-        print(f"   CF Users: {metadata.data_stats['cf_users']:,}")
-        print(f"   CF Pairs: {metadata.data_stats['cf_total_pairs']:,}")
-        print(f"   CB Products: {metadata.data_stats['cb_products']:,}")
-        print(f"   Popularity Products: {metadata.data_stats['popularity_products']:,}")
-        print(f"   Model Size: {metadata.model_size_mb:.2f} MB")
-        print(f"\nFiles created:")
-        print(f"   hybrid_model.pkl - Main model (pickle)")
-        print(f"   hybrid_model.joblib - Optimized model (joblib)")
-        print(f"   hybrid_model_lite.json - Lightweight version")
-        print(f"   model_metadata.json - Model information")
-        print(f"   kafka_producer.py - Kafka producer script")
-        print(f"   kafka_model_loader.py - Model loader for Kafka")
-        print(f"   test_model.py - Performance testing script")
-        print(f"   arrays/ - Numpy arrays for numerical computation")
-        print(f"\nNext steps:")
-        print(f"   1. Copy the model folder to your Kafka service")
-        print(f"   2. Use kafka_model_loader.py in your Kafka consumer")
-        print(f"   3. Run test_model.py to verify performance")
-        print(f"   4. Configure your streaming pipeline")
 
 
 # Usage example
-def main():
+def save_model_for_kafka_deployment(recommender_instance):
     """
-    Example usage of the enhanced recommender with Kafka serialization
+    Main function to save your trained model for Kafka
     """
-    # Initialize recommender
-    recommender = EnhancedHybridRecommender(
-        cf_weight=0.4,
-        cb_weight=0.3,
-        popularity_weight=0.3
-    )
+    serializer = KafkaModelSerializer(recommender_instance)
+    model_path = serializer.save_for_kafka()
     
-    # Train your model (you would implement these methods)
-    # recommender.train_collaborative_filtering(user_item_df)
-    # recommender.train_content_based(item_features_df)
-    # recommender.calculate_popularity_scores(user_item_df)
+    print(f"\n🎉 Model successfully prepared for Kafka!")
+    print(f"📁 Saved to: {model_path}")
+    print(f"\n📋 Files created:")
+    print(f"   • hybrid_model.pkl - Main model (pickle)")
+    print(f"   • hybrid_model.joblib - Optimized model (joblib)")
+    print(f"   • hybrid_model_lite.json - Lightweight version")
+    print(f"   • model_metadata.json - Model information")
+    print(f"   • kafka_producer.py - Kafka producer script")
+    print(f"   • kafka_model_loader.py - Model loader for Kafka")
+    print(f"   • test_model.py - Performance testing script")
+    print(f"   • arrays/ - Numpy arrays for numerical computation")
     
-    # Save for Kafka deployment
-    model_path = recommender.save_for_kafka_deployment()
-    
-    print(f"Model saved successfully at: {model_path}")
+    print(f"\n🚀 Next steps:")
+    print(f"   1. Copy the model folder to your Kafka service")
+    print(f"   2. Use kafka_model_loader.py in your Kafka consumer")
+    print(f"   3. Run test_model.py to verify performance")
+    print(f"   4. Configure your streaming pipeline")
     
     return model_path
 
-if __name__ == "__main__":
-    # Set up logging
-    logging.basicConfig(level=logging.INFO)
+# Integration with your existing code
+def add_to_existing_recommender():
+    """
+    Add this method to your existing EnhancedHybridRecommender class
+    """
+    def save_for_kafka_deployment(self, model_path: str = "models/hybrid_recommender_kafka/"):
+        """Save model optimized for Kafka real-time predictions"""
+        serializer = KafkaModelSerializer(self)
+        return serializer.save_for_kafka(model_path)
     
-    # Run example
-    main()
+    return save_for_kafka_deployment

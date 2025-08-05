@@ -1,7 +1,3 @@
-# =============================================================================
-# FILE: components/transactions.py
-# =============================================================================
-
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -127,8 +123,6 @@ def display_transaction_analytics(transactions):
     
     if 'amount' in transactions.columns:
         display_amount_analytics(transactions)
-    
-    display_general_analytics(transactions)
 
 def display_time_based_analytics(transactions):
     """Display time-based transaction analytics"""
@@ -226,64 +220,3 @@ def display_amount_statistics(transactions):
     
     with col4:
         st.metric("Std Deviation", f"${transactions['amount'].std():.2f}")
-
-def display_general_analytics(transactions):
-    """Display general transaction analytics"""
-    st.subheader("📊 General Analytics")
-    
-    # User and product analysis if available
-    if 'userId' in transactions.columns:
-        display_user_transaction_analysis(transactions)
-    
-    if 'productId' in transactions.columns:
-        display_product_transaction_analysis(transactions)
-
-def display_user_transaction_analysis(transactions):
-    """Display user transaction analysis"""
-    st.subheader("User Transaction Patterns")
-    
-    user_stats = transactions.groupby('userId').agg({
-        'amount': ['count', 'sum', 'mean'] if 'amount' in transactions.columns else 'count'
-    }).round(2)
-    
-    # Flatten column names if multi-level
-    if isinstance(user_stats.columns, pd.MultiIndex):
-        user_stats.columns = ['_'.join(col).strip() for col in user_stats.columns]
-        user_stats = user_stats.rename(columns={
-            'amount_count': 'Transaction Count',
-            'amount_sum': 'Total Amount',
-            'amount_mean': 'Average Amount'
-        })
-    else:
-        user_stats = user_stats.rename(columns={'count': 'Transaction Count'})
-    
-    # Sort by transaction count
-    sort_col = 'Transaction Count'
-    user_stats = user_stats.sort_values(sort_col, ascending=False)
-    
-    st.dataframe(user_stats.head(100), use_container_width=True)
-
-def display_product_transaction_analysis(transactions):
-    """Display product transaction analysis"""
-    st.subheader("Product Transaction Patterns")
-    
-    product_stats = transactions.groupby('productId').agg({
-        'amount': ['count', 'sum', 'mean'] if 'amount' in transactions.columns else 'count'
-    }).round(2)
-    
-    # Flatten column names if multi-level
-    if isinstance(product_stats.columns, pd.MultiIndex):
-        product_stats.columns = ['_'.join(col).strip() for col in product_stats.columns]
-        product_stats = product_stats.rename(columns={
-            'amount_count': 'Transaction Count',
-            'amount_sum': 'Total Revenue',
-            'amount_mean': 'Average Price'
-        })
-    else:
-        product_stats = product_stats.rename(columns={'count': 'Transaction Count'})
-    
-    # Sort by transaction count
-    sort_col = 'Transaction Count'
-    product_stats = product_stats.sort_values(sort_col, ascending=False)
-    
-    st.dataframe(product_stats.head(100), use_container_width=True)

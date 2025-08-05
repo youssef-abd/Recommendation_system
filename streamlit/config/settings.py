@@ -9,6 +9,7 @@ PAGE_CONFIG = {
 # Sidebar options
 SIDEBAR_OPTIONS = [
     "📊 Dashboard Overview",
+    "🔴 Live Feed",
     "👤 User Analysis", 
     "📦 Product Analysis",
     "💳 Transactions",
@@ -18,9 +19,9 @@ SIDEBAR_OPTIONS = [
 
 # Data file paths
 DATA_PATHS = {
-    'user_ratings': 'data/processed/clean/cleaned_user_ratings.csv',
-    'product_ratings': 'data/processed/clean/cleaned_product_ratings2.csv',
-    'transactions': 'data/processed/clean/cleaned_transactions.csv',
+    'user_ratings': 'data/processed/clean/user_ratings_net.csv',
+    'product_ratings': 'data/processed/clean/products_net.csv',
+    'transactions': 'data/processed/clean/transactions_net.csv',
     'interaction_matrix': 'data/processed/interaction_matrix_sparse.npz',
     'als_recommendations': 'data/processed/recommendations/advanced_als_recommendations/als_recs.csv',
     'content_recommendations': 'data/processed/content_based_recommendations/content_based_recommendations.csv',

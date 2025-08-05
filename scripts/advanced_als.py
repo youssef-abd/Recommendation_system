@@ -2,6 +2,9 @@ import os
 import json
 import numpy as np
 from itertools import product
+import pickle
+from pyspark.ml.recommendation import ALSModel
+from pyspark.ml import PipelineModel
 
 # Memory settings
 os.environ["PYSPARK_SUBMIT_ARGS"] = "--driver-memory 6g --executor-memory 6g --executor-cores 2 --num-executors 2 --conf spark.driver.extraJavaOptions='-Xss4m' --conf spark.executor.extraJavaOptions='-Xss4m' pyspark-shell"
@@ -357,6 +360,199 @@ try:
     
 except Exception as e:
     print(f"[ERROR] Error saving: {e}")
+print("[SAVE] Saving all models for Kafka integration...")
 
-print("[COMPLETE] Advanced ALS completed successfully!")
+# Create models directory
+models_dir = "models"
+os.makedirs(models_dir, exist_ok=True)
+
+try:
+    # 1. Save Spark ALS Model (Spark native format)
+    als_model_path = f"{models_dir}/als_model"
+    als_model.write().overwrite().save(als_model_path)
+    print(f"[SUCCESS] ALS model saved to {als_model_path}")
+    
+    # 2. Save Random Forest Pipeline (Spark native format)
+    rf_model_path = f"{models_dir}/rf_pipeline_model"
+    rf_model.write().overwrite().save(rf_model_path)
+    print(f"[SUCCESS] RF Pipeline model saved to {rf_model_path}")
+    
+    # 3. Save Index Models (for user/product mapping)
+    user_model_path = f"{models_dir}/user_indexer_model"
+    product_model_path = f"{models_dir}/product_indexer_model"
+    
+    user_model.write().overwrite().save(user_model_path)
+    product_model.write().overwrite().save(product_model_path)
+    print(f"[SUCCESS] Indexer models saved")
+    
+    # 4. Save Model Metadata and Ensemble Configuration
+    model_metadata = {
+        "model_type": "spark_ensemble",
+        "als_weight": 0.7,
+        "rf_weight": 0.3,
+        "als_params": {
+            "maxIter": 25,
+            "regParam": 0.05,
+            "rank": 75,
+            "alpha": 1.0
+        },
+        "rf_params": {
+            "numTrees": 50,
+            "maxDepth": 10
+        },
+        "feature_columns": [
+            "user_avg_rating", "user_rating_std", "user_rating_count",
+            "item_avg_rating", "item_rating_std", "item_rating_count",
+            "user_item_rating_diff", "rating_vs_item_avg_diff", "user_popularity_score"
+        ],
+        "performance": {
+            "ensemble_rmse": float(ensemble_rmse),
+            "ensemble_mae": float(ensemble_mae),
+            "ensemble_r2": float(ensemble_r2),
+            "accuracy_within_1": float(accuracy_within_1)
+        }
+    }
+    
+    with open(f"{models_dir}/model_metadata.json", "w") as f:
+        json.dump(model_metadata, f, indent=4)
+    print(f"[SUCCESS] Model metadata saved")
+    
+    # 5. Save User and Item Features for Real-time Inference
+    print("[SAVE] Saving feature datasets...")
+    
+    # Save user features
+    user_features.coalesce(1).write.mode("overwrite").option("header", "true").csv(f"models/user_features")
+    
+    # Save item features  
+    item_features.coalesce(1).write.mode("overwrite").option("header", "true").csv(f"models/item_features")
+    
+    # Save mappings
+    user_mapping.coalesce(1).write.mode("overwrite").option("header", "true").csv(f"models/user_mapping")
+    product_mapping.coalesce(1).write.mode("overwrite").option("header", "true").csv(f"models/product_mapping")
+    
+    print("[SUCCESS] All models and features saved successfully!")
+    print("\nSaved components:")
+    print("  [OK] ALS Model (Spark format)")
+    print("  [OK] RF Pipeline Model (Spark format)")
+    print("  [OK] User/Product Indexers")
+    print("  [OK] Model metadata and ensemble config")
+    print("  [OK] User/Item features for real-time inference")
+    print("  [OK] User/Product ID mappings")
+    
+except Exception as e:
+    print(f"[ERROR] Error saving models: {e}")
+
+# Model Loading Class for Kafka Consumer
+model_loader_code = '''
+import os
+import json
+import pandas as pd
+from pyspark.sql import SparkSession
+from pyspark.ml.recommendation import ALSModel
+from pyspark.ml import PipelineModel
+from pyspark.ml.feature import StringIndexerModel
+
+class SparkModelLoader:
+    def __init__(self, models_dir="models"):
+        self.models_dir = models_dir
+        self.spark = None
+        self.als_model = None
+        self.rf_model = None
+        self.user_indexer = None
+        self.product_indexer = None
+        self.metadata = None
+        self.user_features = None
+        self.item_features = None
+        self.user_mapping = None
+        self.product_mapping = None
+        
+    def initialize_spark(self):
+        """Initialize Spark session for model loading"""
+        self.spark = SparkSession.builder \\
+            .appName("RecommendationInference") \\
+            .config("spark.sql.adaptive.enabled", "true") \\
+            .getOrCreate()
+    
+    def load_models(self):
+        """Load all saved models"""
+        try:
+            if self.spark is None:
+                self.initialize_spark()
+            
+            # Load ALS model
+            self.als_model = ALSModel.load(f"{self.models_dir}/als_model")
+            print("[OK] ALS model loaded")
+            
+            # Load RF pipeline
+            self.rf_model = PipelineModel.load(f"{self.models_dir}/rf_pipeline_model")
+            print("[OK] RF pipeline loaded")
+            
+            # Load indexers
+            self.user_indexer = StringIndexerModel.load(f"{self.models_dir}/user_indexer_model")
+            self.product_indexer = StringIndexerModel.load(f"{self.models_dir}/product_indexer_model")
+            print("[OK] Indexers loaded")
+            
+            # Load metadata
+            with open(f"{self.models_dir}/model_metadata.json", "r") as f:
+                self.metadata = json.load(f)
+            print("[OK] Metadata loaded")
+            
+            # Load feature datasets
+            self.user_features = self.spark.read.csv(f"{self.models_dir}/user_features", header=True, inferSchema=True)
+            self.item_features = self.spark.read.csv(f"{self.models_dir}/item_features", header=True, inferSchema=True)
+            self.user_mapping = self.spark.read.csv(f"{self.models_dir}/user_mapping", header=True, inferSchema=True)
+            self.product_mapping = self.spark.read.csv(f"{self.models_dir}/product_mapping", header=True, inferSchema=True)
+            print("[OK] Feature datasets loaded")
+            
+            return True
+            
+        except Exception as e:
+            print(f"Error loading models: {e}")
+            return False
+    
+    def get_recommendations(self, user_id, num_recommendations=10):
+        """Generate recommendations for a user"""
+        try:
+            # Convert user_id to index
+            user_df = self.spark.createDataFrame([(user_id,)], ["userId"])
+            user_indexed = self.user_indexer.transform(user_df)
+            user_index = user_indexed.collect()[0]["userIndex"]
+            
+            # Generate ALS recommendations
+            user_subset = self.spark.createDataFrame([(user_index,)], ["userIndex"])
+            als_recs = self.als_model.recommendForUserSubset(user_subset, num_recommendations)
+            
+            # Convert back to original IDs and return
+            recommendations = []
+            for row in als_recs.collect():
+                for rec in row["recommendations"]:
+                    product_index = rec["productIndex"]
+                    rating = rec["rating"]
+                    
+                    # Get original product ID
+                    product_df = self.spark.createDataFrame([(product_index,)], ["productIndex"])
+                    product_original = product_df.join(self.product_mapping, "productIndex").collect()[0]["productId"]
+                    
+                    recommendations.append({
+                        "product_id": product_original,
+                        "predicted_rating": float(rating)
+                    })
+            
+            return recommendations
+            
+        except Exception as e:
+            print(f"Error generating recommendations: {e}")
+            return []
+    
+    def cleanup(self):
+        """Stop Spark session"""
+        if self.spark:
+            self.spark.stop()
+'''
+
+# Save the model loader class
+with open(f"{models_dir}/spark_model_loader.py", "w", encoding='utf-8') as f:
+    f.write(model_loader_code)
+
+print(f"[SUCCESS] Model loader class saved to {models_dir}/spark_model_loader.py")
 spark.stop()

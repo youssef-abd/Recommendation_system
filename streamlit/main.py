@@ -4,8 +4,9 @@ from utils.styling import apply_custom_css
 from data.data_loader import load_all_data
 from components import (
     dashboard, user_analysis, product_analysis, 
-    transactions, visualizations, recommendations
-)
+    transactions, visualizations, recommendations, live_feed
+) 
+from components.live_feed import show_live_feed
 
 def main():
     # Page configuration
@@ -37,6 +38,8 @@ def main():
         transactions.render(transactions_data)
     elif view_option == "📈 Visualizations":
         visualizations.render(user_ratings, product_ratings, transactions_data)
+    elif view_option == "🔴 Live Feed":
+        live_feed.show_live_feed()
     elif view_option == "🎯 Recommendation Systems":
         recommendations.render(user_ratings, product_ratings)
     
