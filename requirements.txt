@@ -1,0 +1,10 @@
+streamlit
+pandas
+scikit-learn
+matplotlib
+seaborn
+pyspark
+tqdm
+joblib
+numpy
+kafka-pyhton
