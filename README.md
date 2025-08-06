@@ -39,7 +39,7 @@ This cutting-edge recommendation system combines **collaborative filtering**, **
 - Automated deployment scripts
 
 ##  Project Structure
-
+```
 youssef-abd-recommendation_system/
 ├── LICENSE               # MIT License
 ├── requirements.txt      # Python dependencies
@@ -92,7 +92,7 @@ youssef-abd-recommendation_system/
        ├── transactions.py # Purchase history
        ├── user_analysis.py # User segmentation
        └── visualizations.py # Plotly charts
-
+```
 
 
 ## Sequence diagram
