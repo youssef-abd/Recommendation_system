@@ -57,6 +57,7 @@ youssef-abd-recommendation_system/
 │   │   ├── live_feed.py  # Real-time Kafka monitoring
 │   │   ├── recommendations.py  # Recommendation explorer
 ```
+![Uploading deepseek_mermaid_20250806_d5d323.png…]()
 
 ## 🛠️ Installation
 
