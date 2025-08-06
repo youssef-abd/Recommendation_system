@@ -96,6 +96,7 @@ youssef-abd-recommendation_system/
 
 
 ## Sequence diagram
+
 ![System Architecture Diagram](diagram_sequence_rec_sys.png)
 
 ##  Installation
@@ -173,6 +174,13 @@ hybrid_score = (
 - **Chunked processing** of large datasets
 - **Sparse matrices** for user-item interactions
 - **Optimized data types** (float32, categoricals)
+
+## Data Flow Diagram
+
+<div align="center">
+  <img src="flow_diagram.png" width="500" alt="Recommendation System Data Flow">
+  <br>
+</div>
 
 ##  License
 
