@@ -141,5 +141,5 @@ MIT License - Copyright (c) 2025 Youssef Abdelmoumene
 ## 📞 Contact
 
 **Youssef Abdelmoumene**  
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-blue)](https://linkedin.com/in/yourprofile)  
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-blue)](https://www.linkedin.com/in/youssef-abdelmoumene/)  
 youssef.abdelmoumene@example.com  
