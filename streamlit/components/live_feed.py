@@ -1,6 +1,22 @@
 # streamlit/components/live_feed.py
 import streamlit as st
-from kafka import KafkaConsumer
+# Safe import helper to load external 'kafka-python' package even if local 'kafka' package exists
+import sys
+import importlib
+
+def _load_kafka_module():
+    try:
+        site_pkg_paths = [p for p in sys.path if 'site-packages' in p]
+        for sp in reversed(site_pkg_paths):
+            if sp in sys.path:
+                sys.path.remove(sp)
+            sys.path.insert(0, sp)
+        mod = importlib.import_module('kafka')
+        if not hasattr(mod, 'KafkaConsumer'):
+            raise ImportError("Imported 'kafka' module lacks KafkaConsumer (local package shadowing detected).")
+        return mod
+    except Exception as e:
+        return e
 import json
 import queue
 import threading
@@ -13,6 +29,13 @@ logger = logging.getLogger(__name__)
 
 def show_live_feed():
     st.title("🔴 Live Recommendations Feed")
+
+    # Load kafka-python safely (avoid local package shadowing)
+    kafka_mod = _load_kafka_module()
+    if isinstance(kafka_mod, Exception):
+        st.error(f"Kafka client could not be imported: {kafka_mod}")
+        st.info("If this repository contains a folder named 'kafka', it shadows the installed 'kafka-python' package. Rename the folder (e.g., to 'kafka_app') and redeploy.")
+        return
     
     # Initialize session state
     if 'recommendations_list' not in st.session_state:
@@ -54,7 +77,7 @@ def show_live_feed():
         try:
             logger.info(f"Starting consumer with offset_reset={offset_reset}")
             
-            consumer = KafkaConsumer(
+            consumer = kafka_mod.KafkaConsumer(
                 'recommendations',
                 bootstrap_servers=['localhost:9092'],
                 auto_offset_reset=offset_reset,
@@ -163,7 +186,7 @@ def show_live_feed():
     with col1:
         if st.button("🧪 Test Kafka Connection"):
             try:
-                test_consumer = KafkaConsumer(bootstrap_servers=['localhost:9092'], consumer_timeout_ms=5000)
+                test_consumer = kafka_mod.KafkaConsumer(bootstrap_servers=['localhost:9092'], consumer_timeout_ms=5000)
                 topics = test_consumer.topics()
                 test_consumer.close()
                 st.success(f"✅ Connected! Topics: {list(topics)}")
@@ -173,7 +196,7 @@ def show_live_feed():
     with col2:
         if st.button("📊 Count Messages in Topic"):
             try:
-                counter = KafkaConsumer(
+                counter = kafka_mod.KafkaConsumer(
                     'recommendations',
                     bootstrap_servers=['localhost:9092'],
                     auto_offset_reset='earliest',

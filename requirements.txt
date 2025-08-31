@@ -3,6 +3,7 @@ pandas
 scikit-learn
 matplotlib
 seaborn
+plotly
 pyspark
 tqdm
 joblib
