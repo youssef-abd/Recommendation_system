@@ -1,11 +1,19 @@
 # Project specific
 ignore/
-data/*
-data/raw/*
-data/processed/*
+# Ignore all files recursively inside data, except folders:
+# Allow Git to track these folders themselves:
+!data/
+!data/raw/
+!data/processed/
+
+# Ignore everything inside these folders:
+data/**
+
+# But don't ignore the .gitkeep files inside them:
 !data/.gitkeep
 !data/raw/.gitkeep
 !data/processed/.gitkeep
+
 cache/*.pkl
 *.npz
 commandes.txt

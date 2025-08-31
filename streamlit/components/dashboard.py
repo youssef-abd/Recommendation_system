@@ -99,14 +99,14 @@ def render_dashboard_header():
     """Render modern dashboard header"""
     st.markdown("""
     <div class="main-header">
-        <h1>📊 Analytics Dashboard</h1>
+        <h1> Analytics Dashboard</h1>
         <p>Real-time insights into user behavior and product performance</p>
     </div>
     """, unsafe_allow_html=True)
 
 def render_enhanced_metrics(user_ratings, product_ratings, transactions):
     """Render enhanced metrics with better styling"""
-    st.markdown('<div class="section-header">📈 Key Performance Indicators</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header"> Key Performance Indicators</div>', unsafe_allow_html=True)
     
     # Calculate metrics
     total_users = user_ratings['userId'].nunique()

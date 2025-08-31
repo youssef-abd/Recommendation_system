@@ -19,13 +19,13 @@ def main():
     user_ratings, product_ratings, transactions_data = load_all_data()
     
     # Sidebar navigation
-    st.sidebar.header("🔍 Navigation")
+    st.sidebar.header("Navigation")
     st.sidebar.markdown("---")
     
     view_option = st.sidebar.radio("Select View", SIDEBAR_OPTIONS)
     
     # Main title
-    st.title("📊 E-commerce Analytics Dashboard")
+    st.title("E-commerce Analytics Dashboard")
     
     # Route to appropriate component based on selection
     if view_option == "📊 Dashboard Overview":
